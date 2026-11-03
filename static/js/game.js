@@ -1,0 +1,31 @@
+const socket = io();
+const $ = (id) => document.getElementById(id);
+let roomCode = null, isHost = false, myName = "", currentState = null, hasAnswered = false, localTimer = null, seconds = 15;
+const screens = ["home-screen","room-screen","game-screen","finished-screen"];
+function showScreen(id){screens.forEach(s=>$(s).classList.toggle("hidden",s!==id));}
+function toast(message){const el=$("toast");el.textContent=message;el.classList.remove("hidden");clearTimeout(toast.t);toast.t=setTimeout(()=>el.classList.add("hidden"),2800);}
+function esc(s){return String(s).replace(/[&<>"']/g,c=>({"&":"&amp;","<":"&lt;",">":"&gt;",'"':"&quot;","'":"&#39;"}[c]));}
+$("create-btn").onclick=()=>{const name=$("create-name").value.trim();if(!name)return toast("Please enter your name.");myName=name;socket.emit("create_room",{name});};
+$("join-btn").onclick=()=>{const name=$("join-name").value.trim(),code=$("room-code").value.trim().toUpperCase();if(!name||!code)return toast("Enter your name and room code.");myName=name;socket.emit("join_room",{name,room_code:code});};
+$("room-code").addEventListener("input",e=>e.target.value=e.target.value.toUpperCase().replace(/[^A-Z0-9]/g,"").slice(0,5));
+$("copy-code").onclick=async()=>{try{await navigator.clipboard.writeText(roomCode);toast("Room code copied!");}catch(e){toast("Your room code is "+roomCode);}};
+$("start-btn").onclick=()=>socket.emit("start_game");
+$("next-btn").onclick=()=>socket.emit("next_question");
+$("again-btn").onclick=()=>socket.emit("play_again");
+socket.on("connect",()=>{});
+socket.on("error_message",d=>toast(d.message));
+socket.on("room_created",d=>enterRoom(d));
+socket.on("joined_room",d=>enterRoom(d));
+function enterRoom(d){roomCode=d.room_code;isHost=d.is_host;currentState=d.state;$("display-code").textContent=roomCode; $("host-controls").classList.toggle("hidden",!isHost);$("guest-wait").classList.toggle("hidden",isHost);renderLobby(d.state);showScreen("room-screen");}
+socket.on("lobby_update",state=>{currentState=state;if(state.status==="lobby"){renderLobby(state);showScreen("room-screen");}});
+function renderLobby(state){$("player-count").textContent=state.player_count;$("player-list").innerHTML=state.players.map((p,i)=>`<div class="player-row"><span class="avatar">${esc(p.name.charAt(0).toUpperCase())}</span><span>${esc(p.name)}</span>${i===0&&state.host_sid?"":""}</div>`).join("");$("start-btn").disabled=state.player_count<2;}
+socket.on("game_state",state=>{currentState=state;if(state.status==="playing"){showScreen("game-screen");renderGame(state);}else if(state.status==="between"){renderScores(state);$("answer-status").textContent="ROUND COMPLETE";$("next-btn").classList.toggle("hidden",!isHost);$("next-btn").textContent=state.question_index+1>=state.total_questions?"See final results →":"Next question →";}else if(state.status==="finished"){showScreen("finished-screen");}});
+function renderGame(state){hasAnswered=false;$("round-number").textContent=state.question_index+1;$("progress-bar").style.width=((state.question_index)/state.total_questions*100)+"%";$("category").textContent=state.current_question.category.toUpperCase();$("question-text").textContent=state.current_question.question;$("answer-status").textContent="CHOOSE YOUR ANSWER";$("feedback").className="feedback hidden";$("result-reveal").classList.add("hidden");$("next-btn").classList.add("hidden");$("answers").innerHTML=state.current_question.options.map((o,i)=>`<button class="answer-btn" data-index="${i}"><span class="answer-key">${"ABCD"[i]}</span>${esc(o)}</button>`).join("");document.querySelectorAll(".answer-btn").forEach(btn=>btn.onclick=()=>{if(hasAnswered)return;hasAnswered=true;document.querySelectorAll(".answer-btn").forEach(b=>b.disabled=true);btn.classList.add("selected");socket.emit("submit_answer",{answer:Number(btn.dataset.index)});$("answer-status").textContent="ANSWER LOCKED";});$("total-count").textContent=state.player_count;renderScores(state);startCountdown(state.seconds_left||15);}
+function startCountdown(value){clearInterval(localTimer);seconds=value;$("timer").textContent=seconds;localTimer=setInterval(()=>{seconds=Math.max(0,seconds-1);$("timer").textContent=seconds;if(seconds<=5)$("timer").style.color="var(--pink)";else $("timer").style.color="var(--cyan)";if(seconds<=0)clearInterval(localTimer);},1000);}
+function renderScores(state){$("score-list").innerHTML=state.players.map((p,i)=>`<div class="score-row"><span class="rank">${i+1}.</span><span class="score-name">${esc(p.name)}</span><span class="score-value">${p.score}</span></div>`).join("");$("answered-count").textContent=state.answered_count;}
+socket.on("answer_feedback",d=>{const f=$("feedback");f.className="feedback"+(d.correct?"":" bad");f.textContent=d.timed_out?"Time's up! No points this round.":d.correct?`Correct! +${d.points} points${d.points>100?" (including speed bonus)":""}.`:"Not quite! No points this round.";});
+socket.on("question_result",d=>{document.querySelectorAll(".answer-btn").forEach((b,i)=>{b.disabled=true;if(i===d.correct_index)b.classList.add("correct");});$("result-reveal").textContent="Correct answer: "+d.correct_answer;$("result-reveal").classList.remove("hidden");$("answer-status").textContent="CORRECT ANSWER REVEALED";});
+socket.on("game_finished",d=>{clearInterval(localTimer);const players=d.players||[];const winner=players[0];$("winner-title").textContent=winner?winner.name+" wins!":"Game over!";$("winner-subtitle").textContent=winner?"Congratulations — "+winner.score+" points.":"Thanks for playing."; $("final-scores").innerHTML=players.map((p,i)=>`<div class="final-score-row"><span>${["🥇","🥈","🥉"][i]||"•"} ${esc(p.name)}</span><b>${p.score} pts</b></div>`).join("");$("again-btn").classList.toggle("hidden",!isHost);$("again-wait").classList.toggle("hidden",isHost);showScreen("finished-screen");});
+socket.on("game_state",state=>{if(state.status==="finished"){$("again-btn").classList.toggle("hidden",!isHost);$("again-wait").classList.toggle("hidden",isHost);}});
+socket.on("lobby_update",state=>{if(state.status==="lobby"&&currentState&&currentState.status==="finished"){renderLobby(state);$("again-btn").classList.toggle("hidden",!isHost);showScreen("room-screen");}});
+window.addEventListener("beforeunload",()=>clearInterval(localTimer));

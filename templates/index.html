@@ -1,0 +1,57 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8"><meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>Quiz Arena — Multiplayer Trivia</title>
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link href="https://fonts.googleapis.com/css2?family=DM+Sans:wght@400;500;600;700;800&family=Space+Grotesk:wght@500;600;700&display=swap" rel="stylesheet">
+  <link rel="stylesheet" href="{{ url_for('static', filename='css/style.css') }}">
+  <script src="https://cdn.socket.io/4.7.5/socket.io.min.js"></script>
+</head>
+<body>
+  <div class="ambient ambient-one"></div><div class="ambient ambient-two"></div>
+  <main class="shell">
+    <header class="topbar"><a class="brand" href="/"><span class="brand-mark">Q</span> QUIZ<span>ARENA</span></a><span class="live-pill"><i></i> LIVE MULTIPLAYER</span></header>
+    <section id="home-screen" class="hero">
+      <div class="eyebrow"><span>✦</span> THINK FAST. PLAY TO WIN.</div>
+      <h1>Bring your <span>brainpower.</span><br>Challenge your friends.</h1>
+      <p class="hero-copy">The real-time quiz battle. Create a room, invite your crew, and find out who knows the most.</p>
+      <div class="home-grid">
+        <article class="panel create-panel">
+          <div class="panel-icon">＋</div><h2>Create a room</h2><p>Host a new quiz and invite up to 7 friends.</p>
+          <label for="create-name">YOUR PLAYER NAME</label><input id="create-name" maxlength="18" placeholder="e.g. QuizMaster" autocomplete="nickname">
+          <button id="create-btn" class="btn btn-primary">Create game room <span>↗</span></button>
+        </article>
+        <article class="panel join-panel">
+          <div class="panel-icon panel-icon-purple">⌁</div><h2>Join a room</h2><p>Have a room code? Jump straight into the battle.</p>
+          <label for="join-name">YOUR PLAYER NAME</label><input id="join-name" maxlength="18" placeholder="e.g. Brainy" autocomplete="nickname">
+          <label for="room-code">ROOM CODE</label><input id="room-code" class="code-input" maxlength="5" placeholder="ABCDE" autocomplete="off">
+          <button id="join-btn" class="btn btn-secondary">Join game <span>→</span></button>
+        </article>
+      </div>
+      <div class="feature-strip"><span>⚡ 15-second rounds</span><span>✦ 10 questions</span><span>♛ Live leaderboard</span><span>◉ 2–8 players</span></div>
+    </section>
+
+    <section id="room-screen" class="hidden">
+      <div class="room-heading"><div><div class="eyebrow">YOUR GAME LOBBY</div><h1>Ready to <span>rumble?</span></h1></div><div class="room-code-box"><small>ROOM CODE</small><strong id="display-code">-----</strong><button id="copy-code" aria-label="Copy room code">Copy</button></div></div>
+      <div class="lobby-layout">
+        <article class="panel players-panel"><div class="section-head"><div><h2>Players <span id="player-count" class="count-badge">1</span></h2><p>Waiting for your crew to join</p></div><span class="waiting-dot">● WAITING</span></div><div id="player-list" class="player-list"></div><div class="invite-note">↗ Share the room code with your friends to invite them.</div></article>
+        <article class="panel rules-panel"><div class="eyebrow">HOW TO PLAY</div><h2>Quick rules</h2><ul><li><b>10</b> multiple-choice questions</li><li><b>15 seconds</b> to answer each question</li><li><b>100 points</b> for every correct answer</li><li><b>Speed bonus</b> — answer faster to score more</li><li>Highest score after 10 rounds wins</li></ul><div id="host-controls"><button id="start-btn" class="btn btn-primary">Start the battle <span>⚡</span></button><small>At least 2 players are needed.</small></div><div id="guest-wait" class="guest-wait hidden">The host will start the game soon…</div></article>
+      </div>
+    </section>
+
+    <section id="game-screen" class="hidden">
+      <div class="game-top"><div><div class="eyebrow">QUIZ IN PROGRESS</div><div class="round-label">ROUND <b id="round-number">1</b> <span>OF 10</span></div></div><div class="timer-wrap"><div id="timer" class="timer">15</div><small>SECONDS LEFT</small></div></div>
+      <div class="progress-track"><div id="progress-bar"></div></div>
+      <div class="quiz-layout"><article class="panel question-panel"><div class="question-meta"><span id="category" class="category-tag">GENERAL</span><span id="answer-status">CHOOSE YOUR ANSWER</span></div><h2 id="question-text">Question appears here</h2><div id="answers" class="answers"></div><div id="feedback" class="feedback hidden"></div><div id="result-reveal" class="result-reveal hidden"></div><button id="next-btn" class="btn btn-primary hidden">Next question →</button></article>
+      <aside class="panel scoreboard"><div class="section-head"><div><h2>Leaderboard</h2><p>Current standings</p></div><span>♛</span></div><div id="score-list"></div><div class="players-answered"><span id="answered-count">0</span> / <span id="total-count">0</span> answered</div></aside></div>
+    </section>
+
+    <section id="finished-screen" class="hidden">
+      <div class="finish-card panel"><div class="trophy">🏆</div><div class="eyebrow">THE BATTLE IS OVER</div><h1 id="winner-title">We have a winner!</h1><p id="winner-subtitle">What a game.</p><div id="final-scores" class="final-scores"></div><button id="again-btn" class="btn btn-primary">Play again ↻</button><p id="again-wait" class="muted hidden">Waiting for the host to start a rematch…</p></div>
+    </section>
+    <div id="toast" class="toast hidden"></div>
+    <footer>QUIZ ARENA <span>•</span> Made for friendly competition</footer>
+  </main>
+  <script src="{{ url_for('static', filename='js/game.js') }}"></script>
+</body></html>
